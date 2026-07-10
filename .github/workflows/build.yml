@@ -22,13 +22,18 @@ jobs:
           # Create the official iOS/iPadOS directory payload structure
           mkdir -p Payload/YouTubeTVApp.app
           
-          # Automatically find whatever binary was compiled inside the release folder and copy it
-          find .build/arm64-apple-ios17.0/release/ -maxdepth 1 -type f ! -name "*.plist" ! -name "*.json" ! -name "*.db" -exec cp {} Payload/YouTubeTVApp.app/YouTubeTVApp \;
+          # Loosen search to cleanly locate the built binary anywhere inside the build tree
+          TARGET_BIN=$(find .build -type f -name "yt-tv-ipad" -o -name "YouTubeTVApp" | head -n 1)
           
-          # Force make sure it is marked as executable by the system
+          # If specific name checks fall short, pull the first pure executable out of the release tree
+          if [ -z "$TARGET_BIN" ]; then
+            TARGET_BIN=$(find .build/ -type f ! -name "*.plist" ! -name "*.json" ! -name "*.db" ! -name "*.txt" ! -name "*.nib" ! -name "*.plist" | head -n 1)
+          fi
+          
+          cp "$TARGET_BIN" Payload/YouTubeTVApp.app/YouTubeTVApp
           chmod +x Payload/YouTubeTVApp.app/YouTubeTVApp
 
-          # Dynamically write a valid configuration plist file for iPadOS recognition
+          # Write clean layout plist configurations
           cat <<EOF > Payload/YouTubeTVApp.app/Info.plist
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
