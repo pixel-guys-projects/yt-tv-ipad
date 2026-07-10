@@ -27,7 +27,6 @@ jobs:
       - name: Package App Bundle into IPA
         run: |
           mkdir -p Payload
-          # Automatically finds the compiled .app wherever Xcode drops it inside the archive
           find ./build/App.xcarchive -name "*.app" -exec cp -r {} ./Payload/ \;
           zip -r YouTubeTVApp.ipa Payload
 
