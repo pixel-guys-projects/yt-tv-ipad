@@ -7,7 +7,7 @@ struct ContentView: View {
     
     var body: some View {
         ZStack {
-            // Web View Layer
+            // Core Web View Layer
             FixedWebView(isControlsVisible: $isControlsVisible, isVideoPlaying: $isVideoPlaying)
                 .edgesIgnoringSafeArea(.all)
                 .onTapGesture {
@@ -16,7 +16,7 @@ struct ContentView: View {
                     }
                 }
             
-            // HUD Overlay Layer
+            // HUD Controller Overlay Layer
             VStack {
                 Spacer()
                 HStack {
@@ -50,7 +50,7 @@ struct ContentView: View {
                 }
             }
         }
-        // Native Anti-Dimming Hooks
+        // Force anti-dimming awake state loop when active in foreground
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
         }
@@ -60,27 +60,23 @@ struct ContentView: View {
     }
 }
 
-// Global persistence layout manager to share a properly initialized configuration pool
 class WebViewManager {
     static let shared: WKWebView = {
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
-        config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
-        
-        let webView = WKWebView(frame: .zero, configuration: config)
-        return webView
+        return WKWebView(frame: .zero, configuration: config)
     }()
 }
 
 struct FixedWebView: UIViewRepresentable {
-    var isControlsVisible: Binding<Bool>
-    var isVideoPlaying: Binding<Bool>
+    @Binding var isControlsVisible: Bool
+    @Binding var isVideoPlaying: Bool
     
-    func makeCoordinator() -> Coordinator { 
-        Coordinator(isControlsVisible: isControlsVisible, isVideoPlaying: isVideoPlaying) 
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
     }
-
+    
     func makeUIView(context: Context) -> WKWebView {
         let webView = WebViewManager.shared
         webView.configuration.userContentController.removeScriptMessageHandler(forName: "videoObserver")
@@ -126,25 +122,22 @@ struct FixedWebView: UIViewRepresentable {
     func updateUIView(_ uiView: WKWebView, context: Context) {}
     
     class Coordinator: NSObject, WKScriptMessageHandler {
-        var isControlsVisible: Binding<Bool>
-        var isVideoPlaying: Binding<Bool>
+        var parent: FixedWebView
         
-        init(isControlsVisible: Binding<Bool>, isVideoPlaying: Binding<Bool>) {
-            self.isControlsVisible = isControlsVisible
-            self.isVideoPlaying = isVideoPlaying
+        init(parent: FixedWebView) {
+            self.parent = parent
         }
         
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             if message.name == "videoObserver", let status = message.body as? String {
-                // Fixed thread execution syntax 
-                Task { @MainActor in
+                DispatchQueue.main.async {
                     if status == "playing" {
-                        self.isVideoPlaying.wrappedValue = true
+                        self.parent.isVideoPlaying = true
                         withAnimation(.smooth(duration: 0.4)) {
-                            self.isControlsVisible.wrappedValue = false
+                            self.parent.isControlsVisible = false
                         }
                     } else {
-                        self.isVideoPlaying.wrappedValue = false
+                        self.parent.isVideoPlaying = false
                     }
                 }
             }
