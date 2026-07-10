@@ -11,20 +11,22 @@ jobs:
       - name: Select Xcode Version
         run: sudo xcode-select -s /Applications/Xcode_15.4.app
 
-      - name: Compile Native iOS Binary via xcrun
+      - name: Compile Native iPadOS Binary
         run: |
-          # xcrun routes the entire package compilation strictly within the iOS ecosystem
-          xcrun --sdk iphoneos swift build -c release --triple arm64-apple-ios17.0
+          # Use the built-in --sdk flag to cleanly target iPadOS 17 without breaking the manifest parser
+          swift build -c release \
+            --triple arm64-apple-ios17.0 \
+            --sdk $(xcrun --sdk iphoneos --show-sdk-path)
 
       - name: Assemble Application Bundle and Info.plist
         run: |
-          # Create the official iOS directory payload structure
+          # Create the official iOS/iPadOS directory payload structure
           mkdir -p Payload/YouTubeTVApp.app
           
           # Move the compiled executable binary into place
           cp .build/arm64-apple-ios17.0/release/YouTubeTVApp Payload/YouTubeTVApp.app/YouTubeTVApp
           
-          # Dynamically write a valid configuration plist file for iOS recognition
+          # Dynamically write a valid configuration plist file for iPadOS recognition
           cat <<EOF > Payload/YouTubeTVApp.app/Info.plist
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -50,7 +52,6 @@ jobs:
               <true/>
               <key>UIDeviceFamily</key>
               <array>
-                  <integer>1</integer>
                   <integer>2</integer>
               </array>
               <key>UISupportedInterfaceOrientations</key>
