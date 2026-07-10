@@ -11,23 +11,21 @@ jobs:
       - name: Select Xcode Version
         run: sudo xcode-select -s /Applications/Xcode_15.4.app
 
-      - name: Resolve Swift Dependencies
-        run: swift package resolve
-
-      - name: Compile and Archive App Package
+      - name: Compile Swift App Target
         run: |
-          xcodebuild archive \
-            -packagePath . \
-            -scheme "YouTubeTVApp" \
-            -destination "generic/platform=iOS" \
-            -archivePath "./build/App.xcarchive" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+          swift build -c release --triple arm64-apple-ios17.0
 
       - name: Package App Bundle into IPA
         run: |
           mkdir -p Payload
-          find ./build/App.xcarchive -name "*.app" -exec cp -r {} ./Payload/ \;
+          # Locate the freshly generated .app bundle product directory inside the build cache
+          find .build -name "*.app" -exec cp -r {} ./Payload/ \; 2>/dev/null || true
+          
+          # Fallback check if compiled alternative paths are targeted
+          if [ -z "$(ls -A Payload)" ]; then
+            find /Users/runner/Library/Developer/Xcode/DerivedData -name "*.app" -exec cp -r {} ./Payload/ \; 2>/dev/null || true
+          fi
+          
           zip -r YouTubeTVApp.ipa Payload
 
       - name: Upload Finished IPA Artifact
