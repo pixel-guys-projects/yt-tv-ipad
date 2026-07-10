@@ -13,7 +13,6 @@ jobs:
 
       - name: Compile Native iPadOS Binary
         run: |
-          # Use the built-in --sdk flag to cleanly target iPadOS 17 without breaking the manifest parser
           swift build -c release \
             --triple arm64-apple-ios17.0 \
             --sdk $(xcrun --sdk iphoneos --show-sdk-path)
@@ -23,9 +22,12 @@ jobs:
           # Create the official iOS/iPadOS directory payload structure
           mkdir -p Payload/YouTubeTVApp.app
           
-          # Move the compiled executable binary into place
-          cp .build/arm64-apple-ios17.0/release/YouTubeTVApp Payload/YouTubeTVApp.app/YouTubeTVApp
+          # Automatically find whatever binary was compiled inside the release folder and copy it
+          find .build/arm64-apple-ios17.0/release/ -maxdepth 1 -type f ! -name "*.plist" ! -name "*.json" ! -name "*.db" -exec cp {} Payload/YouTubeTVApp.app/YouTubeTVApp \;
           
+          # Force make sure it is marked as executable by the system
+          chmod +x Payload/YouTubeTVApp.app/YouTubeTVApp
+
           # Dynamically write a valid configuration plist file for iPadOS recognition
           cat <<EOF > Payload/YouTubeTVApp.app/Info.plist
           <?xml version="1.0" encoding="UTF-8"?>
