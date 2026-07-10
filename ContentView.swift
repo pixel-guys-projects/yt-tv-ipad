@@ -7,6 +7,7 @@ struct ContentView: View {
     
     var body: some View {
         ZStack {
+            // Web View Layer
             FixedWebView(isControlsVisible: $isControlsVisible, isVideoPlaying: $isVideoPlaying)
                 .edgesIgnoringSafeArea(.all)
                 .onTapGesture {
@@ -15,6 +16,7 @@ struct ContentView: View {
                     }
                 }
             
+            // HUD Overlay Layer
             VStack {
                 Spacer()
                 HStack {
@@ -48,35 +50,36 @@ struct ContentView: View {
                 }
             }
         }
-        // FORCE ANTI-DIMMING: Disables screen sleeping as long as this app view is open/visible
+        // Native Anti-Dimming Hooks
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
         }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
         }
-        // Double-check fallback: Reinforces waking state whenever video playback status toggles
-        .onChange(of: isVideoPlaying) { oldValue, newValue in
-            UIApplication.shared.isIdleTimerDisabled = true
-        }
     }
 }
 
+// Global persistence layout manager to share a properly initialized configuration pool
 class WebViewManager {
     static let shared: WKWebView = {
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
-        config.preferences.javaScriptCanOpenWindowsAutomatically = false
-        return WKWebView(frame: .zero, configuration: config)
+        config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
+        
+        let webView = WKWebView(frame: .zero, configuration: config)
+        return webView
     }()
 }
 
 struct FixedWebView: UIViewRepresentable {
-    @Binding var isControlsVisible: Bool
-    @Binding var isVideoPlaying: Bool
+    var isControlsVisible: Binding<Bool>
+    var isVideoPlaying: Binding<Bool>
     
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
+    func makeCoordinator() -> Coordinator { 
+        Coordinator(isControlsVisible: isControlsVisible, isVideoPlaying: isVideoPlaying) 
+    }
 
     func makeUIView(context: Context) -> WKWebView {
         let webView = WebViewManager.shared
@@ -123,21 +126,25 @@ struct FixedWebView: UIViewRepresentable {
     func updateUIView(_ uiView: WKWebView, context: Context) {}
     
     class Coordinator: NSObject, WKScriptMessageHandler {
-        var parent: FixedWebView
-        init(_ parent: FixedWebView) { self.parent = parent }
+        var isControlsVisible: Binding<Bool>
+        var isVideoPlaying: Binding<Bool>
+        
+        init(isControlsVisible: Binding<Bool>, isVideoPlaying: Binding<Bool>) {
+            self.isControlsVisible = isControlsVisible
+            self.isVideoPlaying = isVideoPlaying
+        }
         
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             if message.name == "videoObserver", let status = message.body as? String {
-                DispatchQueue.main.async {
+                // Fixed thread execution syntax 
+                Task { @MainActor in
                     if status == "playing" {
-                        self.parent.isVideoPlaying = true
-                        UIApplication.shared.isIdleTimerDisabled = true
+                        self.isVideoPlaying.wrappedValue = true
                         withAnimation(.smooth(duration: 0.4)) {
-                            self.parent.isControlsVisible = false
+                            self.isControlsVisible.wrappedValue = false
                         }
                     } else {
-                        self.parent.isVideoPlaying = false
-                        UIApplication.shared.isIdleTimerDisabled = true // Keep true so D-pad browsing doesn't sleep either
+                        self.isVideoPlaying.wrappedValue = false
                     }
                 }
             }
