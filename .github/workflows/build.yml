@@ -1,0 +1,33 @@
+name: Build IPA from SwiftPM
+on: [workflow_dispatch] # Allows you to trigger the build manually with a button
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Select latest Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
+      - name: Build and Archive Project
+        run: |
+          # Finds your .swiftpm folder automatically and packages it
+          xcodebuild archive \
+            -scheme "YouTubeTVApp" \
+            -destination "generic/platform=iOS" \
+            -archivePath "./build/App.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package into IPA
+        run: |
+          mkdir -p Payload
+          cp -r ./build/App.xcarchive/Products/Applications/*.app ./Payload/
+          zip -r YouTubeTVApp.ipa Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiled-ipa
+          path: YouTubeTVApp.ipa
