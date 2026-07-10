@@ -10,7 +10,7 @@ let package = Package(
     products: [
         .iOSApplication(
             name: "YouTubeTVApp",
-            targets: ["YouTubeTVAppTarget"],
+            targets: ["YouTubeTVApp"],
             bundleIdentifier: "com.pixelguys.yttvipad",
             teamIdentifier: "",
             displayVersion: "1.0",
@@ -28,7 +28,7 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "YouTubeTVAppTarget",
+            name: "YouTubeTVApp",
             path: "."
         )
     ]
